@@ -17,7 +17,8 @@ func New(opts ...Option) (config *Config, err error) {
 		log.Debug().Msg("loading environment from file")
 		err = godotenv.Load(cfg.EnvFile.Path)
 		if err != nil {
-			return nil, err
+			log.Warn().Msg("error loading from file, now load from environment")
+			//return nil, err
 		}
 	}
 

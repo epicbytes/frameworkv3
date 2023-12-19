@@ -20,7 +20,7 @@ type GrpcHTTP interface {
 	runtime.Task
 }
 
-func NewGRPCServer(path string, handler http.Handler, address string) FiberHTTP {
+func NewGRPCServer(path string, handler http.Handler, address string) GrpcHTTP {
 	if address == "" {
 		address = ":8080"
 	}

@@ -4,6 +4,7 @@ type (
 	Config struct {
 		EnvFile    optionsFromEnv
 		Mongo      mongoOption    `envPrefix:"MONGO_"`
+		Postgres   postgresOption `envPrefix:"POSTRGESQL_"`
 		Redis      redisOption    `envPrefix:"REDIS_"`
 		MQTTClient mqttOption     `envPrefix:"MQTT_"`
 		Temporal   temporalOption `envPrefix:"TEMPORAL_"`
@@ -20,6 +21,11 @@ type (
 	}
 
 	mongoOption struct {
+		URI          string `env:"URI"`
+		DatabaseName string `env:"DATABASE_NAME"`
+	}
+
+	postgresOption struct {
 		URI          string `env:"URI"`
 		DatabaseName string `env:"DATABASE_NAME"`
 	}
@@ -64,6 +70,10 @@ func (o mongoOption) apply(opts *Config) {
 	opts.Mongo = o
 }
 
+func (o postgresOption) apply(opts *Config) {
+	opts.Postgres = o
+}
+
 func (o redisOption) apply(opts *Config) {
 	opts.Redis = o
 }
@@ -92,6 +102,13 @@ func WithEnvFile(envfile string) Option {
 
 func WithMongo(uriData string, databaseName string) Option {
 	return mongoOption{
+		URI:          uriData,
+		DatabaseName: databaseName,
+	}
+}
+
+func WithPostgres(uriData string, databaseName string) Option {
+	return postgresOption{
 		URI:          uriData,
 		DatabaseName: databaseName,
 	}

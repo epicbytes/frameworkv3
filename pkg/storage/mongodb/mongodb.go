@@ -2,21 +2,60 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"github.com/epicbytes/frameworkv3/pkg/config"
 	"github.com/epicbytes/frameworkv3/pkg/runtime"
 	"github.com/kamva/mgm/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
 type OnConnectHandler func(ctx context.Context) error
 type BaseModel struct {
-	mgm.DefaultModel `bson:",inline"`
-	DeletedAt        time.Time `bson:"deleted_at,omitempty"`
+	ID        int64 `json:"id" bson:"_id,omitempty"`
+	CreatedAt int64 `json:"created_at" bson:"created_at"`
+	UpdatedAt int64 `json:"updated_at" bson:"updated_at"`
+	DeletedAt int64 `json:"deleted_at" bson:"deleted_at"`
 }
 
+func (b *BaseModel) Creating(collName string) error {
+	b.CreatedAt = time.Now().Unix()
+	b.UpdatedAt = time.Now().Unix()
+	var counter struct {
+		ID    string `bson:"_id"`
+		Value int64  `bson:"value"`
+	}
+	res := mgm.CollectionByName("counter").FindOneAndUpdate(context.Background(),
+		bson.D{{"_id", collName}},
+		bson.M{"$inc": bson.M{"value": 1}},
+		options.FindOneAndUpdate().SetUpsert(true),
+		options.FindOneAndUpdate().SetReturnDocument(options.After))
+	if err := res.Err(); err != nil {
+		return fmt.Errorf("failed to find one and update: %w", err)
+	}
+	if err := res.Decode(&counter); err != nil {
+		return fmt.Errorf("failed to decode counter: %w", err)
+	}
+	b.SetID(counter.Value)
+	return nil
+}
+
+func (b *BaseModel) PrepareID(id interface{}) (interface{}, error) {
+	return id, nil
+}
+func (b *BaseModel) GetID() interface{} {
+	return b.ID
+}
+func (b *BaseModel) SetID(id interface{}) {
+	b.ID = id.(int64)
+}
+func (b *BaseModel) Updating(context.Context) error {
+	b.UpdatedAt = time.Now().Unix()
+	return nil
+}
 func (b *BaseModel) Deleting(ctx context.Context) error {
 
 	return nil

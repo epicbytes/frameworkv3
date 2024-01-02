@@ -2,11 +2,13 @@ package redis
 
 import (
 	"context"
+	"github.com/epicbytes/frameworkv3/pkg/config"
+	"github.com/epicbytes/frameworkv3/pkg/runtime"
 	"github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog/log"
 )
 
-type RedisClient struct {
+type redisClient struct {
 	ctx       context.Context
 	client    *redis.Client
 	URI       string
@@ -14,11 +16,23 @@ type RedisClient struct {
 	onConnect func(ctx context.Context, client *redis.Client) error
 }
 
-func (t *RedisClient) OnConnect(fn func(ctx context.Context, client *redis.Client) error) {
+type RedisClient interface {
+	GetClient() *redis.Client
+	OnConnect(fn func(ctx context.Context, client *redis.Client) error)
+}
+
+func New(cfg *config.Config) runtime.Task {
+	return &redisClient{
+		URI:      cfg.Redis.URI,
+		Password: cfg.Redis.Password,
+	}
+}
+
+func (t *redisClient) OnConnect(fn func(ctx context.Context, client *redis.Client) error) {
 	t.onConnect = fn
 }
 
-func (t *RedisClient) Init(ctx context.Context) error {
+func (t *redisClient) Init(ctx context.Context) error {
 	t.ctx = ctx
 	var err error
 	log.Debug().Msg("INITIAL Redis")
@@ -38,15 +52,15 @@ func (t *RedisClient) Init(ctx context.Context) error {
 	return nil
 }
 
-func (t *RedisClient) GetClient() *redis.Client {
+func (t *redisClient) GetClient() *redis.Client {
 	return t.client
 }
 
-func (t *RedisClient) Ping(context.Context) error {
+func (t *redisClient) Ping(context.Context) error {
 	return nil
 }
 
-func (t *RedisClient) Close() error {
+func (t *redisClient) Close() error {
 	log.Debug().Msg("CLOSE Redis connection")
 	t.client.Shutdown(t.ctx)
 	return nil

@@ -72,10 +72,10 @@ type storage struct {
 	OnConnect    OnConnectHandler
 }
 
-func New(ctx context.Context, cfg *config.Config, config *mgm.Config, connectHandler OnConnectHandler) Storage {
+func New(ctx context.Context, cfg *config.Config, connectHandler OnConnectHandler) Storage {
 	st := &storage{
 		ctx:       ctx,
-		config:    config,
+		config:    &mgm.Config{CtxTimeout: 10 * time.Second},
 		OnConnect: connectHandler,
 	}
 

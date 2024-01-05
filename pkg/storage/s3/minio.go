@@ -31,6 +31,7 @@ type Storage interface {
 	RemoveObject(ctx context.Context, objectName string) error
 
 	Init(ctx context.Context) error
+	IsPriority() bool
 	Ping(context.Context) error
 	Close() error
 }

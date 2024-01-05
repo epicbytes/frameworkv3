@@ -16,6 +16,10 @@ type redisClient struct {
 	onConnect func(ctx context.Context, client *redis.Client) error
 }
 
+func (t *redisClient) IsPriority() bool {
+	return true
+}
+
 type RedisClient interface {
 	GetClient() *redis.Client
 	OnConnect(fn func(ctx context.Context, client *redis.Client) error)

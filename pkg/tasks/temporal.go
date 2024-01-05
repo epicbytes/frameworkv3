@@ -30,6 +30,10 @@ type temporalTask struct {
 	client     client.Client
 }
 
+func (t *temporalTask) IsPriority() bool {
+	return true
+}
+
 func (t *temporalTask) GetClient() client.Client {
 	return t.client
 }

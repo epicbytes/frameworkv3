@@ -19,6 +19,10 @@ type fiberHTTP struct {
 	address string
 }
 
+func (t *fiberHTTP) IsPriority() bool {
+	return false
+}
+
 type FiberHTTP interface {
 	runtime.Task
 }

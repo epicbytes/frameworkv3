@@ -2,13 +2,10 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"github.com/epicbytes/frameworkv3/pkg/config"
 	"github.com/epicbytes/frameworkv3/pkg/runtime"
 	"github.com/rs/zerolog/log"
 	"github.com/uptrace/bun"
-	pgdialect "github.com/uptrace/bun/dialect/pgdialect"
-	pgdriver "github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/migrate"
 )
 
@@ -20,43 +17,44 @@ type Storage interface {
 type storage struct {
 	ctx        context.Context
 	cfg        *config.Config
-	db         *bun.DB
 	connection bun.Conn
 	migrations *migrate.Migrations
 	OnConnect  OnConnectHandler
 }
 
-type PostgresClient interface {
-	GetClient() bun.Conn
+func (t *storage) IsPriority() bool {
+	return true
 }
 
-func (t *storage) GetClient() bun.Conn {
-	return t.connection
-}
-
-func New(ctx context.Context, cfg *config.Config, migrations *migrate.Migrations) Storage {
+func New(ctx context.Context, connection bun.Conn) Storage {
 	return &storage{
 		ctx:        ctx,
-		cfg:        cfg,
-		migrations: migrations,
+		connection: connection,
 	}
+}
+
+type PageEntity struct {
+	Id          int64  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty" bson:"id,omitempty"`
+	CreatedAt   int64  `protobuf:"varint,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty" bson:"created_at,omitempty"`
+	UpdatedAt   int64  `protobuf:"varint,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty" bson:"updated_at,omitempty"`
+	DeletedAt   int64  `protobuf:"varint,4,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty" bson:"deleted_at,omitempty"`
+	Name        string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty" bson:"name,omitempty"`
+	Description string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty" bson:"description,omitempty"`
+}
+
+type Page struct {
+	bun.BaseModel
+	ID        int64      `pathToBun:"id,pk,autoincrement"`
+	CreatedAt int64      `pathToBun:",nullzero,notnull,type:bigint"`
+	UpdatedAt int64      `pathToBun:",nullzero,notnull,type:bigint"`
+	DeletedAt int64      `pathToBun:",soft_delete,nullzero,type:bigint"`
+	Entity    PageEntity `bson:"entity" json:"entity"`
 }
 
 func (t *storage) Init(ctx context.Context) error {
 	t.ctx = ctx
 	var err error
 	log.Debug().Msg("INITIAL Postgres")
-
-	t.db = bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(t.cfg.Postgres.URI))), pgdialect.New())
-	t.connection, err = t.db.Conn(context.Background())
-	if err != nil {
-		log.Warn().Msg(err.Error())
-	}
-
-	err = t.runMigrator(t.migrations)
-	if err != nil {
-		return err
-	}
 
 	if t.OnConnect != nil {
 		err = t.OnConnect(t.ctx)
@@ -69,7 +67,7 @@ func (t *storage) Init(ctx context.Context) error {
 }
 
 func (t *storage) Ping(ctx context.Context) error {
-	return t.connection.PingContext(context.Background())
+	return t.connection.PingContext(ctx)
 }
 
 func (t *storage) Close() error {

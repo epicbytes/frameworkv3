@@ -16,6 +16,10 @@ type grpcHTTP struct {
 	address string
 }
 
+func (g *grpcHTTP) IsPriority() bool {
+	return false
+}
+
 type GrpcHTTP interface {
 	runtime.Task
 }
@@ -31,7 +35,7 @@ func NewGRPCServer(path string, handler http.Handler, address string) GrpcHTTP {
 	}
 }
 
-func (g grpcHTTP) Init(ctx context.Context) error {
+func (g *grpcHTTP) Init(ctx context.Context) error {
 	log.Debug().Msg("INITIAL GRPC SERVICE")
 	mux := http.NewServeMux()
 	mux.Handle(g.path, g.handler)
@@ -49,10 +53,10 @@ func (g grpcHTTP) Init(ctx context.Context) error {
 	return nil
 }
 
-func (g grpcHTTP) Ping(ctx context.Context) error {
+func (g *grpcHTTP) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (g grpcHTTP) Close() error {
+func (g *grpcHTTP) Close() error {
 	return nil
 }

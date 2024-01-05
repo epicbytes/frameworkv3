@@ -17,6 +17,10 @@ type mqttClient struct {
 	onCallback      func(ctx context.Context, client mqtt.Client, message mqtt.Message)
 }
 
+func (t *mqttClient) IsPriority() bool {
+	return true
+}
+
 type MQTTClient interface {
 	OnConnect(fn func(ctx context.Context, client mqtt.Client) error)
 	OnCallback(fn func(ctx context.Context, client mqtt.Client, message mqtt.Message))

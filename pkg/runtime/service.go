@@ -2,12 +2,14 @@ package runtime
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"sync/atomic"
 	"time"
 )
 
 type (
 	Task interface {
+		IsPriority() bool
 		// Init tries to perform the initial initialization of the service, the logic of the function must make sure
 		// that all created connections to remote services are in working order and are pinging. Otherwise, the
 		// application will need additional error handling.
@@ -76,10 +78,24 @@ func (s *TaskKeeper) initAllServices(ctx context.Context) (initError error) {
 	initCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var p parallelRun
-	for i := range s.Tasks {
+	priorityLength := len(lo.Filter(s.Tasks, func(item Task, index int) bool {
+		return item.IsPriority()
+	}))
+	for i := range lo.Filter(s.Tasks, func(item Task, index int) bool {
+		return item.IsPriority()
+	}) {
 		p.do(initCtx, s.Tasks[i].Init)
 	}
-	return p.wait()
+	if p.wait() != nil {
+		return p.err
+	}
+	var pp parallelRun
+	for i := range lo.Filter(s.Tasks, func(item Task, index int) bool {
+		return !item.IsPriority()
+	}) {
+		pp.do(initCtx, s.Tasks[i+priorityLength].Init)
+	}
+	return pp.wait()
 }
 
 func (s *TaskKeeper) testServices(ctx context.Context) error {

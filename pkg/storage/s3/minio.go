@@ -61,6 +61,10 @@ func New() Storage {
 	return &minioStorage{}
 }
 
+func (s *minioStorage) IsPriority() bool {
+	return true
+}
+
 func (s *minioStorage) Init(ctx context.Context) error {
 	log.Debug().Msg("INITIAL S3")
 	u, err := url.Parse("https://s3.hrdtms-dev.ru")

@@ -72,6 +72,10 @@ type storage struct {
 	OnConnect    OnConnectHandler
 }
 
+func (t *storage) IsPriority() bool {
+	return true
+}
+
 func New(ctx context.Context, cfg *config.Config, connectHandler OnConnectHandler) Storage {
 	st := &storage{
 		ctx:       ctx,

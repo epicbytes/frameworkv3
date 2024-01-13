@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
 	"time"
 )
 
@@ -44,6 +45,13 @@ func (b *BaseModel) Creating(collName string) error {
 }
 
 func (b *BaseModel) PrepareID(id interface{}) (interface{}, error) {
+	if _, ok := id.(string); ok {
+		n, err := strconv.ParseInt(id.(string), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert id")
+		}
+		return n, nil
+	}
 	return id, nil
 }
 func (b *BaseModel) GetID() interface{} {

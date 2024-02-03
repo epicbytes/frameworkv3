@@ -4,7 +4,7 @@ type (
 	Config struct {
 		EnvFile    optionsFromEnv
 		Mongo      mongoOption    `envPrefix:"MONGO_"`
-		Postgres   postgresOption `envPrefix:"POSTRGESQL_"`
+		Postgres   postgresOption `envPrefix:"POSTGRESQL_"`
 		Redis      redisOption    `envPrefix:"REDIS_"`
 		MQTTClient mqttOption     `envPrefix:"MQTT_"`
 		Temporal   temporalOption `envPrefix:"TEMPORAL_"`

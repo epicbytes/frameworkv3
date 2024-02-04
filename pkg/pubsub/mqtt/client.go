@@ -63,18 +63,20 @@ func (t *mqttClient) Init(ctx context.Context) error {
 	if len(t.cfg.MQTTClient.Password) > 0 {
 		mqtOpt.SetPassword(t.cfg.MQTTClient.Password)
 	}
-	t.client = mqtt.NewClient(mqtOpt)
+	client := mqtt.NewClient(mqtOpt)
 
-	if token := t.client.Connect(); token.Wait() && token.Error() != nil {
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Fatal().Errs("MQTT Client", []error{token.Error()}).Send()
 	}
 
 	if t.onConnect != nil {
-		err = t.onConnect(t.ctx, t.client)
+		err = t.onConnect(t.ctx, client)
 		if err != nil {
 			return err
 		}
 	}
+
+	t.client = client
 
 	if t.SubscribeTopics != nil && t.onCallback != nil {
 		t.client.SubscribeMultiple(t.SubscribeTopics, func(client mqtt.Client, message mqtt.Message) {

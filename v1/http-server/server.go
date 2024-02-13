@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
@@ -15,12 +16,13 @@ type Server struct {
 	Done   chan struct{}
 }
 
-func NewServer(config *Config) *Server {
+func NewServer(config *Config, handler fiber.ErrorHandler) *Server {
 
 	app := fiber.New(fiber.Config{
 		ServerHeader: "EpicServer",
 		JSONEncoder:  json.Marshal,
 		JSONDecoder:  json.Unmarshal,
+		ErrorHandler: handler,
 	})
 
 	server := &Server{
@@ -39,6 +41,7 @@ func (s *Server) StartServer() error {
 	})
 	s.App.Use(otelfiber.Middleware())
 	s.App.Use(requestid.New())
+	s.App.Use(recover.New())
 	s.App.Use(compress.New(compress.Config{
 		Level: compress.LevelBestCompression,
 	}))

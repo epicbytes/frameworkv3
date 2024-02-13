@@ -15,7 +15,11 @@ type Mongodb struct {
 }
 
 func NewMongoDB(logger *zap.Logger, config *Config) *Mongodb {
-
+	logger.Debug("mongodb://" + config.User + ":" + config.Password + "@" + config.Host + "/" + config.Database + "?retryWrites=true&replicaSet=dbrs&readPreference=primary&connectTimeoutMS=10000&authSource=" + config.Database + "&authMechanism=SCRAM-SHA-1")
+	err := mgm.SetDefaultConfig(nil, config.Database, options.Client().ApplyURI("mongodb://"+config.User+":"+config.Password+"@"+config.Host+"/"+config.Database+"?retryWrites=true&replicaSet=dbrs&readPreference=primary&connectTimeoutMS=10000&authSource="+config.Database+"&authMechanism=SCRAM-SHA-1"))
+	if err != nil {
+		logger.Error(err.Error())
+	}
 	return &Mongodb{
 		Config: config,
 		Logger: logger,

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"fmt"
+	"github.com/goccy/go-yaml"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"gopkg.in/yaml.v3"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -18,11 +18,31 @@ func main() {
 	if len(os.Args) != 4 {
 		log.Fatal(errors.New("must specify exactly tree arguments: templatesPath, localizationsPath, languages(en,fr,zh...)"))
 	}
-	if collectedLanguages, err := ExtractTemplatesDirectory(os.Args[1], "_templ.go"); err != nil {
+	if collectedLanguages, err := ExtractTemplatesDirectory(os.Args[1], strings.Split(os.Args[3], ","), "_templ.go"); err != nil {
 		log.Fatal(err)
 	} else {
-		fmt.Println(collectedLanguages)
-		fmt.Println(ExtractLocalizationsDirectory(os.Args[2]))
+		collectedLocalizations, err := ExtractLocalizationsDirectory(os.Args[2])
+		if err != nil {
+			log.Println(err)
+		}
+
+		ready := AssignLanguages(collectedLocalizations, collectedLanguages)
+		for lang, data := range ready {
+			d, err := yaml.Marshal(Language{lang: data})
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+			f, err := os.Create(os.Args[2] + "/" + lang + ".locale.yml")
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+
+			_, err = io.WriteString(f, string(d))
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 }
 
@@ -35,7 +55,7 @@ func (w walker) Visit(node ast.Node) ast.Visitor {
 	return nil
 }
 
-type Language = map[string][]string
+type Language = map[string]map[string]map[string]string
 
 type file struct {
 	fset         *token.FileSet
@@ -44,6 +64,7 @@ type file struct {
 	filename     string
 	main         bool
 	translations Language
+	langs        []string
 }
 
 func (f *file) walk(fn func(ast.Node) bool) {
@@ -78,15 +99,21 @@ func (f *file) findTranslationCalls() {
 		if fun, ok := ce.Fun.(*ast.SelectorExpr); ok {
 			switch fun.Sel.Name {
 			case "T":
-				var scope = ""
-				var name = ""
+				var scope string
+				var name string
 				if ar, ok := ce.Args[1].(*ast.BasicLit); ok {
-					scope = ar.Value
+					scope, _ = strconv.Unquote(ar.Value)
 				}
 				if ar, ok := ce.Args[2].(*ast.BasicLit); ok {
-					name = ar.Value
+					name, _ = strconv.Unquote(ar.Value)
 				}
-				f.translations[scope] = append(f.translations[scope], name)
+				for _, l := range f.langs {
+					_, ok := f.translations[l][scope]
+					if !ok {
+						f.translations[l][scope] = make(map[string]string)
+					}
+					f.translations[l][scope][name] = ""
+				}
 			default:
 				return true
 			}
@@ -95,8 +122,41 @@ func (f *file) findTranslationCalls() {
 	})
 }
 
-func ExtractTemplatesDirectory(dir string, filenameSuffix string) (Language, error) {
+func AssignLanguages(maps ...Language) Language {
+	out := make(Language)
+
+	for _, m := range maps {
+		for k, lngs := range m {
+			if len(lngs) > 0 {
+				if _, ok := out[k]; !ok {
+					out[k] = map[string]map[string]string{}
+				}
+				for k2, v2 := range lngs {
+					if _, ok := out[k][k2]; !ok {
+						out[k][k2] = map[string]string{}
+					}
+					if len(v2) > 0 {
+						for k3, v3 := range v2 {
+							val, ok := out[k][k2][k3]
+							if ok {
+								out[k][k2][k3] = val
+							} else {
+								out[k][k2][k3] = v3
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func ExtractTemplatesDirectory(dir string, langs []string, filenameSuffix string) (Language, error) {
 	all := make(Language)
+	for _, l := range langs {
+		all[l] = make(map[string]map[string]string)
+	}
 	err := filepath.Walk(dir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -107,13 +167,11 @@ func ExtractTemplatesDirectory(dir string, filenameSuffix string) (Language, err
 				if err != nil {
 					return err
 				}
-				lang, err := CollectTranslations(info.Name(), f)
+				lang, err := CollectTranslations(info.Name(), langs, f)
 				if err != nil {
 					return err
 				}
-				if len(lang) != 0 {
-					all = mergeLanguages(all, lang)
-				}
+				all = AssignLanguages(all, lang)
 				return nil
 			}
 			return nil
@@ -131,18 +189,18 @@ func ExtractLocalizationsDirectory(dir string) (Language, error) {
 			if err != nil {
 				return err
 			}
-			if strings.HasSuffix(path, ".locale.yml") {
-				/*f, err := os.ReadFile(path)
+			if strings.HasSuffix(path, "locale.yml") {
+				f, err := os.ReadFile(path)
 				if err != nil {
 					return err
-				}*/
-				/*lang, err := CollectTranslationsFromLocalizations(info.Name(), f)
+				}
+				lang, err := CollectTranslationsFromLocalizations(info.Name(), f)
 				if err != nil {
 					return err
 				}
 				if len(lang) != 0 {
-					all = mergeLocLanguages(all, lang)
-				}*/
+					all = AssignLanguages(all, lang)
+				}
 				return nil
 			}
 			return nil
@@ -153,47 +211,28 @@ func ExtractLocalizationsDirectory(dir string) (Language, error) {
 	return all, nil
 }
 
-func CollectTranslations(filename string, content []byte) (Language, error) {
+func CollectTranslations(filename string, langs []string, content []byte) (Language, error) {
 	fset := token.NewFileSet()
 	astFile, err := parser.ParseFile(fset, filename, content, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &file{fset: fset, astFile: astFile, src: content, filename: filename, translations: make(Language)}
+	var translations = make(Language)
+
+	for _, l := range langs {
+		translations[l] = make(map[string]map[string]string)
+	}
+
+	f := &file{fset: fset, astFile: astFile, src: content, filename: filename, langs: langs, translations: translations}
 	return f.find(), nil
 }
 
-func CollectTranslationsFromLocalizations(filename string, content []byte) (map[string]interface{}, error) {
-	var config map[string]interface{}
+func CollectTranslationsFromLocalizations(filename string, content []byte) (Language, error) {
+	var config Language
 	err := yaml.Unmarshal(content, &config)
 	if err != nil {
 		return nil, err
 	}
 	return config, nil
 }
-
-func mergeLanguages(all Language, lang Language) Language {
-	for l1, v1 := range lang {
-		if _, ok := all[l1]; ok {
-			all[l1] = lo.Uniq(lo.Union(all[l1], v1))
-		} else {
-			all[l1] = lo.Uniq(v1)
-		}
-	}
-
-	return all
-}
-
-/*func mergeLocLanguages(all map[string]interface{}, lang map[string]interface{}) map[string]interface{} {
-	for l1, v1 := range lang {
-		if _, ok := all[l1]; ok {
-			all[l1] = lo.Uniq(lo.Union(all[l1], v1))
-		} else {
-			all[l1] = lo.Uniq(v1)
-		}
-	}
-
-	return all
-}
-*/

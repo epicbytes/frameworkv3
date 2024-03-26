@@ -24,9 +24,17 @@ func NewMqtt(logger *zap.Logger, config *Config) *MQTT {
 	}
 	client := mqtt.NewClient(mqtOpt)
 
+	st := make(map[string]byte)
+	if len(config.Subscriptions) > 0 {
+		for _, topic := range config.Subscriptions {
+			st[topic] = 0
+		}
+	}
+
 	return &MQTT{
-		Client: client,
-		Logger: logger,
+		Client:          client,
+		Logger:          logger,
+		SubscribeTopics: st,
 	}
 }
 
@@ -35,6 +43,14 @@ func (m *MQTT) StartMqtt() error {
 		m.Logger.Fatal("MQTT Client", zap.Error(token.Error()))
 		return token.Error()
 	}
+
+	if len(m.SubscribeTopics) > 0 {
+		if token := m.Client.SubscribeMultiple(m.SubscribeTopics, nil); token.Wait() && token.Error() != nil {
+			m.Logger.Fatal("MQTT Client Subscribe", zap.Error(token.Error()))
+			return token.Error()
+		}
+	}
+
 	return nil
 }
 

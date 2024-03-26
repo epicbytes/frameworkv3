@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	Host     string `yaml:"host"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	ClientId string `yaml:"clientId"`
+	Host          string   `yaml:"host"`
+	User          string   `yaml:"user"`
+	Password      string   `yaml:"password"`
+	ClientId      string   `yaml:"clientId"`
+	Subscriptions []string `yaml:"subscriptions"`
 }
 
 func NewMqttConfig(provider config.Provider) (*Config, error) {

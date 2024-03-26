@@ -15,7 +15,7 @@ func TestCollectTranslations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			translations, err := CollectTranslations("", nil)
+			translations, err := CollectTranslations("", []string{"en", "ru"}, nil)
 			if err != nil {
 				return
 			}
@@ -40,7 +40,7 @@ func TestParseTemplatesDirectory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := ExtractTemplatesDirectory(tt.args.dir, "_templ.go"); (err != nil) != tt.wantErr {
+			if _, err := ExtractTemplatesDirectory(tt.args.dir, []string{"en", "ru"}, "_templ.go"); (err != nil) != tt.wantErr {
 				t.Errorf("ExtractTemplatesDirectory() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
